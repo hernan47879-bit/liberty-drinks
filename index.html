@@ -2711,13 +2711,35 @@
             </div>
         </div>
     </div>
-    <!-- ==========================================================================
-         JAVASCRIPT EMBEBIDO
-         ========================================================================== -->
+    <!-- FIREBASE SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
     <script>
         /**
-         * Liberty Drinks - Sistema Integral con Menú Desplegable de Botellas Modificables
+         * Liberty Drinks - Sistema Integral con Firebase
          */
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyCRD8MfiLbjFNTCnMKcOPuq08Jv1B33epg",
+          authDomain: "liberty-drinks.firebaseapp.com",
+          projectId: "liberty-drinks",
+          storageBucket: "liberty-drinks.firebasestorage.app",
+          messagingSenderId: "24240071252",
+          appId: "1:24240071252:web:6198b4587f19e779e1c3c1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Estado Global en Memoria para mantener sincronía
+        let FB_DATA = {
+            productos: null,
+            pedidos: null,
+            recetas: null,
+            botellas: null,
+            configuracion: null,
+            pinAdmin: null
+        };
 
         const STORAGE_KEY_PRODUCTOS = 'liberty_drinks_productos';
         const STORAGE_KEY_PEDIDOS = 'liberty_drinks_pedidos';
@@ -2802,6 +2824,43 @@
         let temporizadorAlerta = null;
 
         document.addEventListener('DOMContentLoaded', () => {
+            // FIREBASE LISTENER PARA SINCRONIZACIÓN EN TIEMPO REAL
+            db.collection('liberty_data').onSnapshot(snapshot => {
+                snapshot.forEach(doc => {
+                    const id = doc.id;
+                    const data = doc.data();
+                    
+                    if (id === 'productos') {
+                        FB_DATA.productos = data.lista || [];
+                        renderizarTablaProductos();
+                        renderizarCatalogoCliente();
+                        actualizarSelectorBebidas();
+                    }
+                    if (id === 'pedidos') {
+                        FB_DATA.pedidos = data.lista || [];
+                        renderizarHistorialPedidos();
+                        renderizarReportes();
+                    }
+                    if (id === 'recetas') {
+                        FB_DATA.recetas = data.lista || [];
+                        renderizarRecetasGuardadas();
+                    }
+                    if (id === 'botellas') {
+                        FB_DATA.botellas = data.lista || BOTELLAS_INICIALES;
+                        renderizarBotellasGuardadas();
+                    }
+                    if (id === 'pin') {
+                        FB_DATA.pinAdmin = data.valor || PIN_DEFAULT;
+                    }
+                    if (id === 'configuracion') {
+                        FB_DATA.configuracion = data.config || null;
+                        if (typeof cargarConfiguracionGlobal === 'function') {
+                            cargarConfiguracionGlobal(true); // Pasar true para evitar bucles infinitos si es necesario
+                        }
+                    }
+                });
+            });
+
             // Referencias
             const tabButtons = document.querySelectorAll('.tab-btn');
             const tabContents = document.querySelectorAll('.tab-content');
@@ -3018,92 +3077,71 @@
                 return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
             }
 
+            /* ======================================================================
+               FIREBASE: CAPA DE ACCESO A DATOS
+               ====================================================================== */
             function obtenerProductos() {
-                try {
-                    let datos = localStorage.getItem('productos');
-                    if (datos === null) {
-                        datos = localStorage.getItem(STORAGE_KEY_PRODUCTOS);
-                    }
-                    if (datos !== null) {
-                        const parsed = JSON.parse(datos);
-                        localStorage.setItem('productos', JSON.stringify(parsed));
-                        localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(parsed));
-                        return parsed;
-                    }
-                    // Si es la primera vez, cargar productos iniciales
-                    localStorage.setItem('productos', JSON.stringify(PRODUCTOS_INICIALES));
-                    localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(PRODUCTOS_INICIALES));
-                    return PRODUCTOS_INICIALES;
-                } catch (e) { return PRODUCTOS_INICIALES; }
+                if (FB_DATA.productos !== null) return FB_DATA.productos;
+                // Fallback a localStorage si FB no cargó aún
+                const loc = localStorage.getItem(STORAGE_KEY_PRODUCTOS);
+                if (loc) return JSON.parse(loc);
+                return PRODUCTOS_INICIALES;
             }
 
             function guardarProductos(productos) {
-                try {
-                    localStorage.setItem('productos', JSON.stringify(productos));
-                    localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(productos));
-                    return true;
-                } catch (e) { return false; }
+                FB_DATA.productos = productos;
+                db.collection('liberty_data').doc('productos').set({ lista: productos }).catch(e => console.error(e));
+                localStorage.setItem(STORAGE_KEY_PRODUCTOS, JSON.stringify(productos)); // Backup local
+                return true;
             }
 
             function obtenerPedidos() {
-                try {
-                    let datos = localStorage.getItem('ventas');
-                    if (datos === null) {
-                        datos = localStorage.getItem(STORAGE_KEY_PEDIDOS);
-                    }
-                    if (datos) {
-                        const parsed = JSON.parse(datos);
-                        localStorage.setItem('ventas', JSON.stringify(parsed));
-                        localStorage.setItem(STORAGE_KEY_PEDIDOS, JSON.stringify(parsed));
-                        return parsed;
-                    }
-                    return [];
-                } catch (e) { return []; }
+                if (FB_DATA.pedidos !== null) return FB_DATA.pedidos;
+                const loc = localStorage.getItem(STORAGE_KEY_PEDIDOS);
+                if (loc) return JSON.parse(loc);
+                return [];
             }
 
             function guardarPedidos(pedidos) {
-                try {
-                    localStorage.setItem('ventas', JSON.stringify(pedidos));
-                    localStorage.setItem(STORAGE_KEY_PEDIDOS, JSON.stringify(pedidos));
-                    return true;
-                } catch (e) { return false; }
+                FB_DATA.pedidos = pedidos;
+                db.collection('liberty_data').doc('pedidos').set({ lista: pedidos }).catch(e => console.error(e));
+                localStorage.setItem(STORAGE_KEY_PEDIDOS, JSON.stringify(pedidos));
+                return true;
             }
 
             function obtenerRecetas() {
-                try {
-                    const datos = localStorage.getItem(STORAGE_KEY_RECETAS);
-                    return datos ? JSON.parse(datos) : [];
-                } catch (e) { return []; }
+                if (FB_DATA.recetas !== null) return FB_DATA.recetas;
+                const loc = localStorage.getItem(STORAGE_KEY_RECETAS);
+                if (loc) return JSON.parse(loc);
+                return [];
             }
 
             function guardarRecetas(recetas) {
-                try {
-                    localStorage.setItem(STORAGE_KEY_RECETAS, JSON.stringify(recetas));
-                    return true;
-                } catch (e) { return false; }
+                FB_DATA.recetas = recetas;
+                db.collection('liberty_data').doc('recetas').set({ lista: recetas }).catch(e => console.error(e));
+                localStorage.setItem(STORAGE_KEY_RECETAS, JSON.stringify(recetas));
+                return true;
             }
 
             function obtenerBotellas() {
-                try {
-                    const datos = localStorage.getItem(STORAGE_KEY_BOTELLAS);
-                    if (datos) return JSON.parse(datos);
-                    // Si es la primera vez, cargar las iniciales
-                    localStorage.setItem(STORAGE_KEY_BOTELLAS, JSON.stringify(BOTELLAS_INICIALES));
-                    return BOTELLAS_INICIALES;
-                } catch (e) { return BOTELLAS_INICIALES; }
+                if (FB_DATA.botellas !== null) return FB_DATA.botellas;
+                const loc = localStorage.getItem(STORAGE_KEY_BOTELLAS);
+                if (loc) return JSON.parse(loc);
+                return BOTELLAS_INICIALES;
             }
 
             function guardarBotellas(botellas) {
-                try {
-                    localStorage.setItem(STORAGE_KEY_BOTELLAS, JSON.stringify(botellas));
-                    return true;
-                } catch (e) { return false; }
+                FB_DATA.botellas = botellas;
+                db.collection('liberty_data').doc('botellas').set({ lista: botellas }).catch(e => console.error(e));
+                localStorage.setItem(STORAGE_KEY_BOTELLAS, JSON.stringify(botellas));
+                return true;
             }
 
             /* ======================================================================
                CONTROL DE ACCESO Y SEGURIDAD (PIN)
                ====================================================================== */
             function obtenerPinAdmin() {
+                if (FB_DATA.pinAdmin !== null) return FB_DATA.pinAdmin;
                 return localStorage.getItem(STORAGE_KEY_PIN) || PIN_DEFAULT;
             }
 
@@ -3188,7 +3226,10 @@
                     return;
                 }
 
+                FB_DATA.pinAdmin = nuevo;
+                db.collection('liberty_data').doc('pin').set({ valor: nuevo }).catch(e => console.error(e));
                 localStorage.setItem(STORAGE_KEY_PIN, nuevo);
+                
                 modalCambiarPin.classList.remove('open');
                 mostrarAlerta('¡PIN de Administrador actualizado!', 'success');
             });
@@ -5102,6 +5143,9 @@
 
             function guardarConfiguracionGlobal(config) {
                 try {
+                    FB_DATA.configuracion = config;
+                    db.collection('liberty_data').doc('configuracion').set({ config: config }).catch(e => console.error(e));
+
                     localStorage.setItem(STORAGE_KEY_APP_CONFIG, JSON.stringify(config));
                     // Mantener clave secundaria sincronizada
                     localStorage.setItem(STORAGE_KEY_THEME, JSON.stringify({
