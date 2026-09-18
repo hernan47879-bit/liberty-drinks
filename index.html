@@ -5459,6 +5459,7 @@
                     configuracionGlobal.brand.nombre = e.target.value.trim() || 'Liberty Drinks';
                     aplicarConfiguracionGlobal(configuracionGlobal);
                 });
+                configBrandNombre.addEventListener('change', () => guardarConfiguracionGlobal(configuracionGlobal));
             }
 
             if (configBrandSubtitulo) {
@@ -5466,6 +5467,7 @@
                     configuracionGlobal.brand.subtitulo = e.target.value.trim() || '';
                     aplicarConfiguracionGlobal(configuracionGlobal);
                 });
+                configBrandSubtitulo.addEventListener('change', () => guardarConfiguracionGlobal(configuracionGlobal));
             }
 
             const configWhatsappNumero = document.getElementById('config-whatsapp-numero');
@@ -5473,6 +5475,10 @@
                 configWhatsappNumero.addEventListener('input', (e) => {
                     if (!configuracionGlobal.recepcion) configuracionGlobal.recepcion = {};
                     configuracionGlobal.recepcion.whatsapp = e.target.value.trim() || '';
+                });
+                configWhatsappNumero.addEventListener('change', () => {
+                    guardarConfiguracionGlobal(configuracionGlobal);
+                    mostrarAlerta('WhatsApp guardado.', 'success');
                 });
             }
 
@@ -5507,6 +5513,10 @@
                     if (!configuracionGlobal.tienda) configuracionGlobal.tienda = {};
                     configuracionGlobal.tienda.horariosTexto = e.target.value || '';
                     aplicarConfiguracionGlobal(configuracionGlobal);
+                });
+                configTiendaHorarios.addEventListener('change', () => {
+                    guardarConfiguracionGlobal(configuracionGlobal);
+                    mostrarAlerta('Horarios guardados en la nube.', 'success');
                 });
             }
 
