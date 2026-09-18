@@ -4092,7 +4092,7 @@
                 
                 let urlWa = '';
                 if (numLimpio) {
-                    urlWa = `https://api.whatsapp.com/send?phone=${numLimpio}&text=${encodeURIComponent(textoWa)}`;
+                    urlWa = `https://wa.me/${numLimpio}?text=${encodeURIComponent(textoWa)}`;
                 } else {
                     urlWa = `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWa)}`;
                 }
@@ -4100,10 +4100,10 @@
                 // Opción alternativa (Fallback) si falla el primero en algunos celulares
                 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                 if (isMobile) {
-                    urlWa = numLimpio ? `whatsapp://send?phone=${numLimpio}&text=${encodeURIComponent(textoWa)}` : `whatsapp://send?text=${encodeURIComponent(textoWa)}`;
+                    urlWa = numLimpio ? `https://wa.me/${numLimpio}?text=${encodeURIComponent(textoWa)}` : `https://api.whatsapp.com/send?text=${encodeURIComponent(textoWa)}`;
                 }
                 
-                window.location.href = urlWa;
+                window.open(urlWa, '_blank');
             });
 
             /* ======================================================================
@@ -5112,26 +5112,31 @@
 
             function cargarConfiguracionGlobal() {
                 try {
-                    const guardado = localStorage.getItem(STORAGE_KEY_APP_CONFIG);
-                    if (guardado) {
-                        const parsed = JSON.parse(guardado);
-                        configuracionGlobal = mergeDeep(CONFIG_DEFAULT, parsed);
+                    if (FB_DATA.configuracion) {
+                        configuracionGlobal = mergeDeep(CONFIG_DEFAULT, FB_DATA.configuracion);
+                        localStorage.setItem(STORAGE_KEY_APP_CONFIG, JSON.stringify(configuracionGlobal));
                     } else {
-                        // Compatibilidad con versión anterior
-                        const guardadoTema = localStorage.getItem(STORAGE_KEY_THEME);
-                        if (guardadoTema) {
-                            const parsedTema = JSON.parse(guardadoTema);
-                            if (parsedTema.tema) configuracionGlobal.colores.tema = parsedTema.tema;
-                            if (parsedTema.colorSolido) {
-                                configuracionGlobal.fondo.modo = 'color';
-                                configuracionGlobal.colores.fondoSolido = parsedTema.colorSolido;
-                            }
-                            if (parsedTema.imagenUrl) {
-                                configuracionGlobal.fondo.modo = 'imagen';
-                                configuracionGlobal.fondo.imagen = parsedTema.imagenUrl;
-                            }
-                            if (parsedTema.opacidadOverlay !== undefined) {
-                                configuracionGlobal.fondo.opacidadOverlay = parsedTema.opacidadOverlay;
+                        const guardado = localStorage.getItem(STORAGE_KEY_APP_CONFIG);
+                        if (guardado) {
+                            const parsed = JSON.parse(guardado);
+                            configuracionGlobal = mergeDeep(CONFIG_DEFAULT, parsed);
+                        } else {
+                            // Compatibilidad con versión anterior
+                            const guardadoTema = localStorage.getItem(STORAGE_KEY_THEME);
+                            if (guardadoTema) {
+                                const parsedTema = JSON.parse(guardadoTema);
+                                if (parsedTema.tema) configuracionGlobal.colores.tema = parsedTema.tema;
+                                if (parsedTema.colorSolido) {
+                                    configuracionGlobal.fondo.modo = 'color';
+                                    configuracionGlobal.colores.fondoSolido = parsedTema.colorSolido;
+                                }
+                                if (parsedTema.imagenUrl) {
+                                    configuracionGlobal.fondo.modo = 'imagen';
+                                    configuracionGlobal.fondo.imagen = parsedTema.imagenUrl;
+                                }
+                                if (parsedTema.opacidadOverlay !== undefined) {
+                                    configuracionGlobal.fondo.opacidadOverlay = parsedTema.opacidadOverlay;
+                                }
                             }
                         }
                     }
